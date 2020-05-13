@@ -1,0 +1,9 @@
+a sticks first, b moves
+a invalid, b move
+a moves, b moves
+a moves, b sticks
+a moves, b invalid
+a has ball scores in goal
+a has ball scores in opp goal
+a has no ball, goes into goal
+a and b both move right

@@ -1,0 +1,84 @@
+---
+title: "Untitled"
+author: "Rory Michelen"
+date: "April 4, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(zoo)
+```
+
+```{r}
+data<-read_csv('output_files//output.csv')
+data.pi<-read_csv('output_files//output_pi.csv')
+
+# Standard Q-Learning
+data%>%
+  dplyr::filter(name=='q_01')%>%
+  dplyr::filter(errs>0)%>%
+  gather(key='metric',value='value',errs,epsilon,alpha)%>%
+  ggplot(aes(x=X1,y=value,col=metric))+
+    geom_line(aes(group=metric,alpha=metric))+
+    scale_alpha_discrete(range=c(1,0.4))+
+    coord_cartesian(ylim=c(0,0.5))+
+    labs(title='Q Learning',
+         y='Q Value Difference'
+         ,x='Simulation Iteration')
+
+# Friend Q
+data%>%
+  dplyr::filter(name=='friend_q')%>%
+  dplyr::filter(errs>0)%>%
+  mutate(moving.average=rollmean(x = errs, 100, align = "right", fill = NA))%>%
+  ggplot(aes(x=X1,y=moving.average))+
+    geom_line(col='Darkblue')+
+    coord_cartesian(ylim=c(0,0.5))+
+    labs(title='Friend-Q',
+         subtitle = '100-Point Moving Average',
+         y='Q Value Difference',
+         x='Simulation Iteration')
+
+ 
+# Foe-Q
+data%>%
+  dplyr::filter(name=='foe_q')%>%
+  dplyr::filter(errs>0)%>%
+  gather(key='metric',value='value',errs,alpha)%>%
+  ggplot(aes(x=X1,y=value,col=metric))+
+    geom_line(aes(group=metric,alpha=metric))+
+    scale_alpha_discrete(range=c(1,0.4))+
+    coord_cartesian(ylim=c(0,0.5))+
+    labs(title='Foe-Q',
+         y='Q Value Difference',
+         x='Simulation Iteration')
+
+# Figure 5
+data.pi%>%
+  dplyr::filter(name=='foe_q')%>%
+  mutate(pi_St2=pi_N+pi_St)%>%
+  gather(key='key',value='val',pi_St2,pi_S,pi_E,pi_W)%>%
+  group_by(key)%>%
+  mutate(moving.average=rollmean(x = val, 100, align = "right", fill = NA))%>%
+  ggplot(aes(x=X1,y=moving.average,col=key))+
+    geom_line(aes(group=key))+facet_wrap(~key)+
+    labs(title='Foe-Q Policy by Iteration',subtitle='at State S',x='Simulation Iteration',y='Probability of Action (100 point moving average)')
+
+# uCE-Q
+data%>%
+  dplyr::filter(name=='uce_q')%>%
+  dplyr::filter(errs>0)%>%
+  gather(key='metric',value='value',errs,alpha)%>%
+  ggplot(aes(x=X1,y=value,col=metric))+
+    geom_line(aes(group=metric,alpha=metric))+
+    scale_alpha_discrete(range=c(1,0.4))+
+    coord_cartesian(ylim=c(0,0.5))+
+    labs(title='uCE-Q',
+         y='Q Value Difference',
+         x='Simulation Iteration')
+
+
+```
+

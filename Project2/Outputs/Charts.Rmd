@@ -1,0 +1,141 @@
+---
+title: "Project 2"
+author: "Rory Michelen"
+date: "March 12, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(zoo)
+
+```
+
+
+
+```{r}
+default<-read_csv('DefaultNA.csv')
+
+default<-default%>%
+  dplyr::filter(Trial<1500)
+
+gamma80<-read_csv('Gamma0.8.csv')
+gamma90<-read_csv('Gamma0.9.csv')
+gamma100<-read_csv('Gamma1.0.csv')
+gamma99<-default%>%mutate(Val=0.99,Experiment='Gamma')
+
+lr01<-read_csv('learning_rates0.01.csv')
+lr001<-read_csv('learning_rates0.001.csv')
+lr002<-read_csv('learning_rates0.002.csv')
+lr0001<-read_csv('learning_rates0.0001.csv')
+lr0005<-default%>%mutate(Val=0.0005,Experiment='learning_rates')
+
+e_decay75<-read_csv('epsilon_decay0.75.csv')
+e_decay85<-read_csv('epsilon_decay0.85.csv')
+e_decay100<-read_csv('epsilon_decay1.0.csv')
+e_decay995<-default%>%mutate(Val=0.995,Experiment='epsilon_decay')
+
+batch256<-read_csv('batch_sizes256.csv')
+batch512<-read_csv('batch_sizes512.csv')
+batch64<-default%>%mutate(Val=64,Experiment='batch_sizes')
+
+master.data.set<-gamma80%>%
+  union_all(gamma90)%>%
+  union_all(gamma100)%>%
+  union_all(gamma99)%>%
+  union_all(lr01)%>%
+  union_all(lr001)%>%
+  union_all(lr002)%>%
+  union_all(lr0001)%>%
+  union_all(lr0005)%>%
+  union_all(e_decay75)%>%
+  union_all(e_decay85)%>%
+  union_all(e_decay100)%>%
+  union_all(e_decay995)%>%
+  union_all(batch64)%>%
+  union_all(batch256)%>%
+  union_all(batch512)
+
+rm(gamma90,gamma100,gamma99,gamma80,lr01,lr001,lr002,lr0001,lr0005,e_decay75,e_decay85,e_decay100,e_decay995,batch64,batch256,batch512,default)
+
+final.agent<-read_csv('learning_rates0.002.csv')
+
+final.agent.test<-final.agent%>%
+  dplyr::filter(Trial>=1500)
+
+final.agent<-final.agent%>%
+  dplyr::filter(Trial<1500)
+  
+```
+
+```{r}
+# Replace default experiment with lr=0.002 since it performed better
+final.agent%>%
+  arrange(Trial)%>%
+  mutate(moving.average.Reward=rollmean(x = Reward, 100, align = "right", fill = NA),
+         moving.average.Steps=rollmean(x = Steps, 100, align = "right", fill = NA))%>%
+  gather(key='Metric',value = 'Value',Reward,moving.average.Reward,
+         Steps,moving.average.Steps)%>%
+  dplyr::filter(Metric!='Steps')%>%
+  mutate(a=ifelse(Metric=='Reward',0.99,1),
+         kpi=ifelse(Metric=='moving.average.Steps','Number of Steps','Accumulated Reward'))%>%
+  ggplot(aes(x=Trial,y=Value,col=factor(Metric)))+
+    geom_line(aes(alpha=factor(Metric)))+
+    scale_alpha_discrete(range=c(1,0.5))+
+    labs(title='Reward per Trial and Trials per Episode of Agent during Training',subtitle='Y Axis of top graph is Number of Steps, Total Rewards for bottom Graph')+
+    theme(legend.position = 'none')+
+    geom_hline(yintercept = 200)+
+    facet_wrap(~kpi,scales='free',nrow=2)
+
+
+final.agent.test%>%
+  ggplot(aes(x=Trial,y=Reward))+
+    geom_line()+
+    geom_point()+
+    labs(title='Reward per Episode of Trained Agent',y='Total Reward')
+
+
+```
+
+```{r}
+
+Get_Charts<-function(data){
+  g<-data%>%
+      gather(key='metric',value='value',Reward,Steps,RunTime)%>%
+      group_by(Val,metric)%>%
+      mutate(moving.average20=rollmean(value,100,align='right',fill=NA))%>%
+      dplyr::filter(metric %in% c('Reward','Steps'))%>%
+      ggplot(aes(x=Trial,y=moving.average20,col=as.factor(Val)))+
+        geom_line(alpha=0.5)+
+        facet_wrap(~metric,scale='free',nrow=3)
+  return(g)
+}
+
+g_gamma<-master.data.set%>%
+  dplyr::filter(Experiment=='Gamma')%>%
+  Get_Charts()
+
+g_lr<-master.data.set%>%
+  dplyr::filter(Experiment=='learning_rates')%>%
+  Get_Charts()
+
+g_ed<-master.data.set%>%
+  dplyr::filter(Experiment=='epsilon_decay')%>%
+  Get_Charts()
+
+g_bs<-master.data.set%>%
+  dplyr::filter(Experiment=='batch_sizes')%>%
+  Get_Charts()
+
+g_gamma+labs(title='Reward per trial for various Gamma Values',subtitle='100 Episode trailing average', y='Reward')+theme(legend.title = element_blank())
+
+g_lr+labs(title='Reward per trial for various learning rates',subtitle='100 Episode trailing average', y='Reward')+theme(legend.title = element_blank())
+
+g_ed+labs(title='Reward per trial for various Epsilon Decay values',subtitle='100 Episode trailing average', y='Reward')+theme(legend.title = element_blank())
+
+g_bs+labs(title='Reward per trial for various Batch Sizes',subtitle='100 Episode trailing average', y='Reward')+theme(legend.title = element_blank())
+  
+```
+
